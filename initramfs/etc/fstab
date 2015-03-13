@@ -1,0 +1,4 @@
+proc            /proc      proc     defaults     0      0
+devtmpfs        /dev       devtmpfs defaults     0      0
+sysfs           /sys       sysfs    defaults     0      0
+host9p          /host9p    9p       defaults     0      0

@@ -1,0 +1,8 @@
+#!/busybox-i486 sh
+/busybox-i486 mkdir -p bin usr/sbin usr/bin sbin
+/busybox-i486 --install -s
+mount -a
+mount --move sys host9p/sys
+mount --move proc host9p/proc
+mount --move dev host9p/dev
+chroot host9p
