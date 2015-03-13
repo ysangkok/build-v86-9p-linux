@@ -1,0 +1,4 @@
+FROM olshanov/gcc-4.1.2-55
+RUN curl https://www.kernel.org/pub/linux/kernel/v2.6/linux-2.6.39.tar.bz2 | tar jx
+COPY config-2.6.39 /linux-2.6.39/.config
+RUN (cd linux-2.6.39 && make ARCH=i386)

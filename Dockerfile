@@ -14,4 +14,5 @@ WORKDIR /root
 COPY initramfs initramfs/
 RUN python -c "import urllib; urllib.urlretrieve('http://www.busybox.net/downloads/binaries/1.21.1/busybox-i486','initramfs/busybox-i486')"
 COPY isolinux.cfg CD_root/isolinux/
+COPY 26.bzImage CD_root/
 RUN (cd linux-4.0-rc3 && scripts/gen_initramfs_list.sh -o ../CD_root/initramfs_data.cpio.gz ../initramfs/) && ln linux-4.0-rc3/arch/x86/boot/bzImage CD_root/bzImage && ln /usr/share/syslinux/ldlinux.c32 /usr/share/syslinux/isolinux.bin CD_root/isolinux/ && /opt/schily/bin/mkisofs -allow-leading-dots -allow-multidot -l -relaxed-filenames -no-iso-translate -o 9pboot.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table CD_root
