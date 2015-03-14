@@ -12,7 +12,10 @@ RUN make oldconfig ARCH=i386
 RUN make ARCH=i386
 WORKDIR /root
 COPY initramfs initramfs/
-RUN python -c "import urllib; urllib.urlretrieve('http://www.busybox.net/downloads/binaries/1.21.1/busybox-i486','initramfs/busybox-i486')" && chmod +x initramfs/busybox-i486
+#RUN python -c "import urllib; urllib.urlretrieve('http://www.busybox.net/downloads/binaries/1.21.1/busybox-i486','initramfs/busybox-i486')" && chmod +x initramfs/busybox-i486
+#RUN python -c "import urllib; urllib.urlretrieve('http://www.busybox.net/downloads/busybox-1.23.1.tar.bz2','/dev/stdout')" | tar jx && (cd busybox-1.23.1 && export TGTARCH=i486 && make defconfig && LDFLAGS="--static" make EXTRA_CFLAGS=-m32 EXTRA_LDFLAGS=-m32 && ln busybox ../initramfs/busybox-i486) && rm -rf busybox-1.23.1
+RUN python -c "import urllib; urllib.urlretrieve('http://download.savannah.gnu.org/releases/tinycc/tcc-0.9.26.tar.bz2','/dev/stdout')" | tar jx && (cd tcc-0.9.26 && ./configure --enable-cross && make i386-tcc && make install) && rm -rf tcc-0.9.26
+RUN python -c "import urllib; urllib.urlretrieve('http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz','/dev/stdout')" | tar zx && (cd toybox-0.5.2 && sed -i -re 's/-Wl,--as-needed//' scripts/make.sh && ln -s `which gcc` /usr/bin/cc && make defconfig && rm /usr/bin/cc && LDOPTIMIZE=" " CC="tcc" CFLAGS="-static -m32" ./scripts/make.sh) && rm -rf toybox-0.5.2
 COPY isolinux.cfg CD_root/isolinux/
-COPY 26.bzImage CD_root/
+#COPY 26.bzImage CD_root/
 RUN (cd linux-4.0-rc3 && scripts/gen_initramfs_list.sh -o ../CD_root/initramfs_data.cpio.gz ../initramfs/) && ln linux-4.0-rc3/arch/x86/boot/bzImage CD_root/bzImage && ln /usr/share/syslinux/ldlinux.c32 /usr/share/syslinux/isolinux.bin CD_root/isolinux/ && /opt/schily/bin/mkisofs -allow-leading-dots -allow-multidot -l -relaxed-filenames -no-iso-translate -o 9pboot.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table CD_root
