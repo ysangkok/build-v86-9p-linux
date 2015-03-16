@@ -1,13 +1,22 @@
 FROM radial/busyboxplus:curl
 WORKDIR /
 # i486 for toybox (which needs a c library)
-RUN curl "https://e82b27f594c813a5a4ea5b07b06f16c3777c3b8c.googledrive.com/host/0BwnS5DMB0YQ6bDhPZkpOYVFhbk0/musl-1.1.6/crossx86-x86_64-linux-musl-1.1.6.tar.xz" | unxz | tar x && curl "https://e82b27f594c813a5a4ea5b07b06f16c3777c3b8c.googledrive.com/host/0BwnS5DMB0YQ6bDhPZkpOYVFhbk0/musl-1.1.6/crossx86-i486-linux-musl-1.1.6.tar.xz" | unxz | tar x
+RUN   curl "https://e82b27f594c813a5a4ea5b07b06f16c3777c3b8c.googledrive.com/host/0BwnS5DMB0YQ6bDhPZkpOYVFhbk0/musl-1.1.6/crossx86-x86_64-linux-musl-1.1.6.tar.xz" | unxz | tar x \
+  &&  curl "https://e82b27f594c813a5a4ea5b07b06f16c3777c3b8c.googledrive.com/host/0BwnS5DMB0YQ6bDhPZkpOYVFhbk0/musl-1.1.6/crossx86-i486-linux-musl-1.1.6.tar.xz"   | unxz | tar x
 
 #make-4.1 uses OLDGNU tar format that busybox doesn't support, use our own tar
 # alternative: https://sourceforge.net/projects/s-tar/files/
 COPY sltar.c sltar.c
 # alternative to make-4.1.tar.bz2: http://fossies.org/linux/privat/bmake-20141111.zip
-RUN /x86_64-linux-musl/bin/x86_64-musl-linux-gcc sltar.c -DVERSION="\"9000\"" -static -o sltar && curl "http://ftp.gnu.org/gnu/make/make-4.1.tar.bz2" | bunzip2 | ./sltar x && (cd make-4.1 && ./configure PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC="/x86_64-linux-musl/bin/x86_64-linux-musl-gcc" LDFLAGS="-static" && ./build.sh && cp make /usr/bin/) && rm -rf make-4.1
+RUN   /x86_64-linux-musl/bin/x86_64-musl-linux-gcc sltar.c -DVERSION="\"9000\"" -static -o sltar \
+  &&  curl "http://ftp.gnu.org/gnu/make/make-4.1.tar.bz2" | bunzip2 | ./sltar x \
+  &&  ( \
+          cd make-4.1 \
+      &&  ./configure PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC="/x86_64-linux-musl/bin/x86_64-linux-musl-gcc" LDFLAGS="-static" \
+      &&  ./build.sh \
+      &&  cp make /usr/bin/ \
+      ) \
+  && rm -rf make-4.1
 
 ENV PATH /usr/local/bin:$PATH
 
@@ -15,8 +24,9 @@ RUN curl http://ftp.gnu.org/gnu/cpio/cpio-2.11.shar.gz | gunzip | sh && (cd cpio
 
 RUN curl http://www.nasm.us/pub/nasm/releasebuilds/2.11.08/nasm-2.11.08.tar.xz | unxz | tar x && (cd nasm-2.11.08 && ./configure LDFLAGS="-static" CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc && make && make install) && rm -rf nasm-2.11.08 && nasm; if [[ $? != 1 ]]; then echo "no nasm"; exit 1; fi
 
-RUN curl https://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.tar.xz | unxz | tar x
-RUN curl -o /usr/bin/perl http://staticperl.schmorp.de/bigperl.bin && chmod +x /usr/bin/perl
+RUN   curl https://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.tar.xz | unxz | tar x \
+  &&  curl -o /usr/bin/perl http://staticperl.schmorp.de/bigperl.bin \
+  &&  chmod +x /usr/bin/perl
 # isolinux.bin and ldlinux.c32 already exist here... this is why building is commented out
 #RUN FILE=$(find . -name "isolinux.bin" -print); if [[ "$FILE" != "" ]]; then echo -e "found\n$FILE"; else echo "didn't find file"; exit 1; fi
 #RUN FILE=$(find . -name "ldlinux.c32" -print); if [[ "$FILE" != "" ]]; then echo -e "found\n$FILE"; else echo "didn't find file"; exit 1; fi
@@ -32,20 +42,61 @@ RUN curl -o /usr/bin/perl http://staticperl.schmorp.de/bigperl.bin && chmod +x /
 #make[4]: gcc: Command not found
 #RUN make -C syslinux-6.03 bios PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc
 
-RUN curl -L http://sourceforge.net/projects/libuuid/files/libuuid-1.0.3.tar.gz/download | gunzip | cpio -mi && (cd libuuid-1.0.3 && ./configure --prefix=/x86_64-linux-musl/x86_64-linux-musl CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc LDFLAGS=-static) && make -C libuuid-1.0.3 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH AUTOCONF=: AUTOHEADER=: AUTOMAKE=: ACLOCAL=: && make -C libuuid-1.0.3 install AUTOCONF=: AUTOHEADER=: AUTOMAKE=: ACLOCAL=: && rm -rf libuuid-1.0.3
+RUN   curl -L http://sourceforge.net/projects/libuuid/files/libuuid-1.0.3.tar.gz/download | gunzip | cpio -mi \
+  &&  ( \
+          cd libuuid-1.0.3 \
+      &&  ./configure \
+            --prefix=/x86_64-linux-musl/x86_64-linux-musl \
+            CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+            LDFLAGS=-static\
+      ) \
+  &&  make -C libuuid-1.0.3 \
+        PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+        AUTOCONF=: AUTOHEADER=: AUTOMAKE=: ACLOCAL=: \
+  &&  make -C libuuid-1.0.3 \
+        install \
+        AUTOCONF=: AUTOHEADER=: AUTOMAKE=: ACLOCAL=: \
+  &&  rm -rf libuuid-1.0.3
 
-RUN make -C syslinux-6.03 install PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc && rm -rf syslinux-6.03 && rm /usr/bin/perl
+RUN   make -C syslinux-6.03 \
+        install \
+        PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+        CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+  &&  rm -rf syslinux-6.03 \
+  &&  rm /usr/bin/perl
 
-RUN curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x
-RUN cd toybox-0.5.2 && sed -i -re '1 s,^.*$,#!/bin/sh,g' scripts/genconfig.sh # to prevent using bash
-RUN (cd toybox-0.5.2 && echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc && chmod +x /usr/bin/cc && make defconfig && rm /usr/bin/cc)
-RUN cd /i486-linux-musl/bin && ln -s i486-linux-musl-gcc i486-linux-musl-cc
+# replace shebang to avoid using bash
+RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x \
+  &&  cd toybox-0.5.2 && sed -i -re '1 s,^.*$,#!/bin/sh,g' scripts/genconfig.sh \
+  &&  ( \
+            cd toybox-0.5.2 \
+        &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc \
+        &&  chmod +x /usr/bin/cc \
+        &&  make defconfig \
+        &&  rm /usr/bin/cc \
+      )
 
 RUN curl http://invisible-island.net/datafiles/release/byacc.tar.gz | gunzip | tar x
-RUN (cd byacc* && ./configure LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc && make && make install) && rm -rf byacc*
+RUN   (     cd byacc* \
+        &&  ./configure \
+            LDFLAGS=-static \
+            CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+        &&  make \
+        &&  make install\
+      ) \
+  &&  rm -rf byacc*
 
-RUN curl http://ftp.gnu.org/gnu/m4/m4-1.4.17.tar.xz | unxz | tar x
-RUN (cd m4-1.4.17 && ./configure LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make && make install) && rm -rf m4-1.4.17
+RUN   curl http://ftp.gnu.org/gnu/m4/m4-1.4.17.tar.xz | unxz | tar x \
+  &&  ( \
+            cd m4-1.4.17 \
+        &&  ./configure \
+              LDFLAGS=-static \
+              CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+        &&  make \
+              PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+        &&  make install \
+      ) \
+  &&  rm -rf m4-1.4.17
 
 # alternative for this method: a zip file: http://fossies.org/linux/misc/flex-2.5.39.zip
 RUN curl -L http://sourceforge.net/projects/flex/files/flex-2.5.39.tar.xz/download | unxz | cpio -mi
@@ -55,32 +106,79 @@ RUN curl -L http://sourceforge.net/projects/flex/files/flex-2.5.39.tar.xz/downlo
 ## move directory contents and overwrite (archive to keep mtimes)
 #RUN find flex-flex-2.5.39 -maxdepth 1 -mindepth 1 -exec cp -avrl "{}" /flex-2.5.39/ \; && rm -rf flex-flex-2.5.39
 
-RUN cd flex-2.5.39 && grep -vE ' *doc *\\ *' < Makefile.am > temp && mv temp Makefile.am && grep -vE ' *doc *\\ *' < Makefile.in > temp && mv temp Makefile.in && ./configure --enable-static LDFLAGS=--static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc
-RUN cd flex-2.5.39 && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make
-RUN cd flex-2.5.39 && ./flex; if [[ $? != 1 ]]; then ls -ld flex; exit 1; fi
-RUN (cd flex-2.5.39 && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make install) && rm -rf flex-2.5.39
+RUN   cd flex-2.5.39 \
+  &&  grep -vE ' *doc *\\ *' < Makefile.am > temp \
+  &&  mv temp Makefile.am \
+  &&  grep -vE ' *doc *\\ *' < Makefile.in > temp \
+  &&  mv temp Makefile.in \
+  &&  ./configure --enable-static LDFLAGS=--static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc
 
-RUN wget http://fossies.org/linux/privat/ed-1.10.zip && unzip ed-1.10.zip && (cd ed-1.10 && ./configure LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc && make && make install) && rm -rf ed-1.10
+RUN   cd flex-2.5.39 \
+  &&  make \
+        PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH
 
-RUN curl http://alpha.gnu.org/gnu/bc/bc-1.06.95.tar.bz2 | bunzip2 | cpio -mi && (cd bc-1.06.95 && ./configure CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc LDFLAGS=-static && sed -i -re 's/ doc$//' Makefile.am Makefile.in && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make && make install) && rm -rf bc-1.06.95
+RUN   cd flex-2.5.39 \
+  &&  ./flex; if [[ $? != 1 ]]; then ls -ld flex; exit 1; fi
+
+RUN   ( \
+            cd flex-2.5.39 \
+        &&  make \
+              install \
+              PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+      ) \
+  &&  rm -rf flex-2.5.39
+
+RUN   wget http://fossies.org/linux/privat/ed-1.10.zip \
+  &&  unzip ed-1.10.zip \
+  &&  ( \
+            cd ed-1.10 \
+        &&  ./configure \
+              LDFLAGS=-static \
+              CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+        &&  make \
+        &&  make install \
+      ) \
+  &&  rm -rf ed-1.10
+
+RUN   curl http://alpha.gnu.org/gnu/bc/bc-1.06.95.tar.bz2 | bunzip2 | cpio -mi \
+  &&  ( \
+            cd bc-1.06.95 \
+        &&  ./configure \
+              CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+              LDFLAGS=-static \
+        &&  sed -i -re 's/ doc$//' Makefile.am Makefile.in \
+        &&  make \
+              PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+        &&  make install \
+      ) \
+  && rm -rf bc-1.06.95
 
 # these were tested only with glibc (official gcc docker):
 #RUN python -c "import urllib; urllib.urlretrieve('http://www.busybox.net/downloads/binaries/1.21.1/busybox-i486','initramfs/busybox-i486')" && chmod +x initramfs/busybox-i486
 #RUN python -c "import urllib; urllib.urlretrieve('http://download.savannah.gnu.org/releases/tinycc/tcc-0.9.26.tar.bz2','/dev/stdout')" | tar jx && (cd tcc-0.9.26 && ./configure --enable-cross && make i386-tcc && make install) && rm -rf tcc-0.9.26
 # this is for building toybox with tcc:
 #RUN python -c "import urllib; urllib.urlretrieve('http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz','/dev/stdout')" | tar zx && (cd toybox-0.5.2 && sed -i -re 's/-Wl,--as-needed//' scripts/make.sh && ln -s `which gcc` /usr/bin/cc && make defconfig && rm /usr/bin/cc && LDOPTIMIZE=" " CC="tcc" CFLAGS="-static -m32" ./scripts/make.sh) && rm -rf toybox-0.5.2
-COPY isolinux.cfg CD_root/isolinux/
-#COPY 26.bzImage CD_root/
+
 RUN curl -L http://sourceforge.net/projects/s-make/files/smake-1.2.4.tar.bz2/download | bunzip2 | tar x
 # make bootstrap smake:
-RUN cd smake-1.2.4/psmake && LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc ./MAKE-all
+RUN   cd smake-1.2.4/psmake \
+  &&  LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc ./MAKE-all
+
 #RUN smake-1.2.4/psmake/smake; if [[ $? != 1 ]]; then echo "no bootstrap smake"; exit 1; fi
 #this ought to work, but smake can't detect the architecture correctly like this, i think it may be parsing the compiler path:
 #RUN cd smake-1.2.4 && sed -i '274i	echo $(C_ARCH)' RULES/rules1.top && sed -i '2iecho "$@"' conf/makeinc && ./psmake/smake -WW -DD -d -r all CCOM=/x86_64-linux-musl/bin/x86_64-musl-linux-gcc
-RUN echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc && chmod +x /usr/bin/gcc
-RUN cd smake-1.2.4 && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make
-RUN (cd smake-1.2.4 && make install) && rm -rf smake-1.2.4
-RUN /opt/schily/bin/smake; if [[ $? != 1 ]]; then echo "no smake"; exit 1; fi
+
+RUN   echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
+  &&  chmod +x /usr/bin/gcc \
+  &&  cd smake-1.2.4 \
+  &&  make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+  &&  ( \
+            cd smake-1.2.4 \
+        &&  make install\
+      ) \
+  &&  rm -rf smake-1.2.4 \
+  &&  /opt/schily/bin/smake; if [[ $? != 1 ]]; then echo "no smake"; exit 1; fi
+
 RUN curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.01a27.tar.bz2/download" | bunzip2 | tar x
 RUN PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01
 RUN rm /usr/bin/gcc && ln -s /x86_64-linux-musl/bin/x86_64-linux-musl-gcc /usr/bin/gcc && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01 install LDOPTX=-static && rm -rf cdrtools-3.01 /usr/bin/gcc && /opt/schily/bin/mkisofs; if [[ $? != 1 ]]; then echo "no mkisofs"; exit 1; fi
@@ -94,10 +192,12 @@ RUN make oldconfig ARCH=i386
 #  MKCAP   arch/x86/kernel/cpu/capflags.c
 #./arch/x86/kernel/cpu/mkcapflags.sh: line 9: syntax error: unexpected "("
 RUN make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH || true
-#TODO change following / to ..
 #TODO use --enable-static-link instead of CFLAGS
-RUN cd / && curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && (cd bash-4.3.30 && ./configure --prefix=/ --without-bash-malloc PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc CFLAGS="-static" && make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH && make install)
+RUN cd .. && curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && (cd bash-4.3.30 && ./configure --prefix=/ --without-bash-malloc PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc CFLAGS="-static" && make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH && make install)
 RUN make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH || true
+
+COPY isolinux.cfg CD_root/isolinux/
+#COPY 26.bzImage CD_root/
 
 RUN ln arch/x86/boot/bzImage ../CD_root/bzImage
 RUN rm /usr/bin/gcc
