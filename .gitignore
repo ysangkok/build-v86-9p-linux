@@ -1,2 +1,5 @@
 *bzImage
 9pboot.iso
+filledinitramfs
+busybox-i486
+toybox
