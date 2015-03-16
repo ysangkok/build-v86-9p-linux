@@ -7,7 +7,7 @@ RUN curl "https://e82b27f594c813a5a4ea5b07b06f16c3777c3b8c.googledrive.com/host/
 # alternative: https://sourceforge.net/projects/s-tar/files/
 COPY sltar.c sltar.c
 # alternative to make-4.1.tar.bz2: http://fossies.org/linux/privat/bmake-20141111.zip
-RUN /i486-linux-musl/bin/i486-musl-linux-gcc sltar.c -DVERSION="\"9000\"" -static -o sltar && curl "http://ftp.gnu.org/gnu/make/make-4.1.tar.bz2" | bunzip2 | ./sltar x && (cd make-4.1 && ./configure PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC="/x86_64-linux-musl/bin/x86_64-linux-musl-gcc" LDFLAGS="-static" && ./build.sh && cp make /usr/bin/) && rm -rf make-4.1
+RUN /x86_64-linux-musl/bin/x86_64-musl-linux-gcc sltar.c -DVERSION="\"9000\"" -static -o sltar && curl "http://ftp.gnu.org/gnu/make/make-4.1.tar.bz2" | bunzip2 | ./sltar x && (cd make-4.1 && ./configure PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC="/x86_64-linux-musl/bin/x86_64-linux-musl-gcc" LDFLAGS="-static" && ./build.sh && cp make /usr/bin/) && rm -rf make-4.1
 
 ENV PATH /usr/local/bin:$PATH
 
