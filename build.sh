@@ -7,7 +7,7 @@ CONTAINER=$(docker create 9pkernel-done)
 docker cp $CONTAINER:/9pboot.iso .
 docker cp $CONTAINER:/initramfs/ filledinitramfs
 cp -v 9pboot.iso /var/www/v86/images
-cp -rv filledinitramfs/ /var/www/v86/fsroot/
+cp -rv filledinitramfs/* /var/www/v86/fsroot/
 cat > /var/www/v86/init <<END
 #!/bin/bash
 exec oneit /bin/bash
