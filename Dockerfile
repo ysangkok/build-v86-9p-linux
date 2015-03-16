@@ -67,14 +67,12 @@ RUN   make -C syslinux-6.03 \
 
 # replace shebang to avoid using bash
 RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x \
-  &&  cd toybox-0.5.2 && sed -i -re '1 s,^.*$,#!/bin/sh,g' scripts/genconfig.sh \
-  &&  ( \
-            cd toybox-0.5.2 \
-        &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc \
-        &&  chmod +x /usr/bin/cc \
-        &&  make defconfig \
-        &&  rm /usr/bin/cc \
-      )
+  &&  cd toybox-0.5.2 \
+  &&  sed -i -re '1 s,^.*$,#!/bin/sh,g' scripts/genconfig.sh \
+  &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc \
+  &&  chmod +x /usr/bin/cc \
+  &&  make defconfig \
+  &&  rm /usr/bin/cc
 
 RUN curl http://invisible-island.net/datafiles/release/byacc.tar.gz | gunzip | tar x
 RUN   (     cd byacc* \
@@ -138,7 +136,8 @@ RUN   wget http://fossies.org/linux/privat/ed-1.10.zip \
         &&  make \
         &&  make install \
       ) \
-  &&  rm -rf ed-1.10
+  &&  rm -rf ed-1.10 \
+  &&  rm ed-1.10.zip
 
 RUN   curl http://alpha.gnu.org/gnu/bc/bc-1.06.95.tar.bz2 | bunzip2 | cpio -mi \
   &&  ( \
@@ -170,31 +169,31 @@ RUN   cd smake-1.2.4/psmake \
 
 RUN   echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
   &&  chmod +x /usr/bin/gcc \
-  &&  cd smake-1.2.4 \
-  &&  make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
   &&  ( \
             cd smake-1.2.4 \
+        &&  make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
         &&  make install\
       ) \
   &&  rm -rf smake-1.2.4 \
+  &&  rm /usr/bin/gcc \
   &&  /opt/schily/bin/smake; if [[ $? != 1 ]]; then echo "no smake"; exit 1; fi
+
+# needed for linux
+RUN curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && (cd bash-4.3.30 && ./configure --prefix=/ --without-bash-malloc PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc LDFLAGS=-static && make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH && make install) && rm -rf bash-4.3.30
 
 RUN curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.01a27.tar.bz2/download" | bunzip2 | tar x
 RUN PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01
-RUN rm /usr/bin/gcc && ln -s /x86_64-linux-musl/bin/x86_64-linux-musl-gcc /usr/bin/gcc && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01 install LDOPTX=-static && rm -rf cdrtools-3.01 /usr/bin/gcc && /opt/schily/bin/mkisofs; if [[ $? != 1 ]]; then echo "no mkisofs"; exit 1; fi
+RUN ln -s /x86_64-linux-musl/bin/x86_64-linux-musl-gcc /usr/bin/gcc && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01 install LDOPTX=-static && rm -rf cdrtools-3.01 /usr/bin/gcc && /opt/schily/bin/mkisofs; if [[ $? != 1 ]]; then echo "no mkisofs"; exit 1; fi
 
 RUN curl http://mirror.techfak.uni-bielefeld.de/linux/kernel/v4.x/testing/linux-4.0-rc3.tar.xz | unxz | tar x
 WORKDIR /linux-4.0-rc3
 COPY config-3.17.8 .config
 RUN echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc && chmod +x /usr/bin/gcc
 RUN make oldconfig ARCH=i386
-#the following fails with this error cause it needs bash (we build it and continue the linux build):
+#without bash, the following fails with this error:
 #  MKCAP   arch/x86/kernel/cpu/capflags.c
 #./arch/x86/kernel/cpu/mkcapflags.sh: line 9: syntax error: unexpected "("
-RUN make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH || true
-#TODO use --enable-static-link instead of CFLAGS
-RUN cd .. && curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && (cd bash-4.3.30 && ./configure --prefix=/ --without-bash-malloc PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc CFLAGS="-static" && make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH && make install)
-RUN make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH || true
+RUN make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH
 
 COPY isolinux.cfg CD_root/isolinux/
 #COPY 26.bzImage CD_root/
@@ -207,7 +206,7 @@ RUN rm -rf linux-4.0-rc3
 # CFLAGS and not LDFLAGS cause the example on the toybox website uses it like this:
 RUN curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x && (cd toybox-0.5.2 && echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc && chmod +x /usr/bin/cc && make defconfig && rm /usr/bin/cc) && (cd /i486-linux-musl/bin && ln -fs i486-linux-musl-gcc i486-linux-musl-cc) && (cd toybox-0.5.2 && echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc && chmod +x /usr/bin/gcc && PATH=/i486-linux-musl/bin/:$PATH CFLAGS=-static CROSS_COMPILE=i486-linux-musl- PREFIX=/initramfs make toybox install V=1) && ./toybox-0.5.2/toybox; if [[ $? != 0 ]]; then echo "no toybox: exit code: $?"; exit 1; fi && rm /usr/bin/gcc && rm -rf toybox-0.5.2
 
-RUN rm -rf bash-4.3.30 && curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && cd bash-4.3.30 && ./configure --enable-static-link --build=i386-linux --host=x86_64-linux --prefix=/ --without-bash-malloc PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH LDFLAGS_FOR_BUILD=-static CC_FOR_BUILD=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc CC=/i486-linux-musl/bin/i486-linux-musl-gcc
+RUN curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && cd bash-4.3.30 && ./configure --enable-static-link --build=i386-linux --host=x86_64-linux --prefix=/ --without-bash-malloc PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH LDFLAGS_FOR_BUILD=-static CC_FOR_BUILD=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc CC=/i486-linux-musl/bin/i486-linux-musl-gcc
 RUN cd bash-4.3.30 && make RANLIB=/i486-linux-musl/i486-linux-musl/bin/ranlib
 RUN cd bash-4.3.30 && make install DESTDIR=/initramfs && /i486-linux-musl/i486-linux-musl/bin/strip /initramfs/bin/bash
 
