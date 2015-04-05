@@ -5,11 +5,7 @@
 docker build -t 9pkernel-done .
 CONTAINER=$(docker create 9pkernel-done)
 docker cp $CONTAINER:/9pboot.iso .
-docker cp $CONTAINER:/initramfs/ filledinitramfs
+rm -rf filledinitramfs
+docker cp $CONTAINER:/initramfs/. filledinitramfs
 cp -v 9pboot.iso /var/www/v86/images
-cp -rv filledinitramfs/initramfs/. /var/www/v86/fsroot/
-cat > /var/www/v86/init <<END
-#!/bin/bash
-exec oneit /bin/bash
-END
-python /var/www/v86/fs2json.py > /var/www/v86/docs/samples/fs.json
+exec ./build2.sh

@@ -150,7 +150,7 @@ RUN   curl http://alpha.gnu.org/gnu/bc/bc-1.06.95.tar.bz2 | bunzip2 | cpio -mi \
               PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
         &&  make install \
       ) \
-  && rm -rf bc-1.06.95
+  &&  rm -rf bc-1.06.95
 
 # these were tested only with glibc (official gcc docker):
 #RUN python -c "import urllib; urllib.urlretrieve('http://www.busybox.net/downloads/binaries/1.21.1/busybox-i486','initramfs/busybox-i486')" && chmod +x initramfs/busybox-i486
@@ -179,44 +179,127 @@ RUN   echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $
   &&  /opt/schily/bin/smake; if [[ $? != 1 ]]; then echo "no smake"; exit 1; fi
 
 # needed for linux
-RUN curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && (cd bash-4.3.30 && ./configure --prefix=/ --without-bash-malloc PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc LDFLAGS=-static && make PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH && make install) && rm -rf bash-4.3.30
+RUN  curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x \
+  &&  ( \
+            cd bash-4.3.30 \
+         && ./configure \
+              --prefix=/ \
+              --without-bash-malloc \
+              PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+              CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+              LDFLAGS=-static \
+         && make \
+              PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+         && make install\
+      ) \
+  &&  rm -rf bash-4.3.30
 
-RUN curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.01a27.tar.bz2/download" | bunzip2 | tar x
-RUN PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01
-RUN ln -s /x86_64-linux-musl/bin/x86_64-linux-musl-gcc /usr/bin/gcc && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01 install LDOPTX=-static && rm -rf cdrtools-3.01 /usr/bin/gcc && /opt/schily/bin/mkisofs; if [[ $? != 1 ]]; then echo "no mkisofs"; exit 1; fi
+RUN   curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.01a27.tar.bz2/download" | bunzip2 | tar x \
+  &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
+  &&  chmod +x /usr/bin/gcc \
+  &&  PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01 \
+  &&  ln -fs /x86_64-linux-musl/bin/x86_64-linux-musl-gcc /usr/bin/gcc \
+  &&  PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH /opt/schily/bin/smake -C cdrtools-3.01 install LDOPTX=-static \
+  &&  rm -rf cdrtools-3.01 /usr/bin/gcc \
+  &&  /opt/schily/bin/mkisofs; if [[ $? != 1 ]]; then echo "no mkisofs"; exit 1; fi
 
-RUN curl http://mirror.techfak.uni-bielefeld.de/linux/kernel/v4.x/testing/linux-4.0-rc3.tar.xz | unxz | tar x
-WORKDIR /linux-4.0-rc3
 COPY config-3.17.8 .config
-RUN echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc && chmod +x /usr/bin/gcc
-RUN make oldconfig ARCH=i386
-#without bash, the following fails with this error:
+COPY isolinux.cfg CD_root/isolinux/
+RUN curl http://mirror.techfak.uni-bielefeld.de/linux/kernel/v4.x/testing/linux-4.0-rc3.tar.xz | unxz | tar x \
+  &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
+  &&  chmod +x /usr/bin/gcc \
+  &&  ( \
+            cd linux-4.0-rc3 \
+        &&  mv ../.config . \
+        &&  make oldconfig ARCH=i386 \
+        &&  make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
+        &&  ln arch/x86/boot/bzImage ../CD_root/bzImage \
+      ) \
+  &&  rm -rf linux-4.0-rc3 \
+  &&  rm /usr/bin/gcc
+#without bash, making would fail with this error:
 #  MKCAP   arch/x86/kernel/cpu/capflags.c
 #./arch/x86/kernel/cpu/mkcapflags.sh: line 9: syntax error: unexpected "("
-RUN make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH
-
-COPY isolinux.cfg CD_root/isolinux/
 #COPY 26.bzImage CD_root/
 
-RUN ln arch/x86/boot/bzImage ../CD_root/bzImage
-RUN rm /usr/bin/gcc
-WORKDIR /
-RUN rm -rf linux-4.0-rc3
-
 # CFLAGS and not LDFLAGS cause the example on the toybox website uses it like this:
-RUN curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x && (cd toybox-0.5.2 && echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc && chmod +x /usr/bin/cc && make defconfig && rm /usr/bin/cc) && (cd /i486-linux-musl/bin && ln -fs i486-linux-musl-gcc i486-linux-musl-cc) && (cd toybox-0.5.2 && echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc && chmod +x /usr/bin/gcc && PATH=/i486-linux-musl/bin/:$PATH CFLAGS=-static CROSS_COMPILE=i486-linux-musl- PREFIX=/initramfs make toybox install V=1) && ./toybox-0.5.2/toybox; if [[ $? != 0 ]]; then echo "no toybox: exit code: $?"; exit 1; fi && rm /usr/bin/gcc && rm -rf toybox-0.5.2
+RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x \
+  &&  ( \
+           cd toybox-0.5.2 \
+        && echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc \
+        && chmod +x /usr/bin/cc \
+        && make defconfig \
+        && rm /usr/bin/cc \
+      ) \
+  &&  ( \
+           cd /i486-linux-musl/bin \
+        && ln -fs i486-linux-musl-gcc i486-linux-musl-cc \
+      ) \
+  &&  ( \
+           cd toybox-0.5.2 \
+        && echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
+        && chmod +x /usr/bin/gcc \
+        && PATH=/i486-linux-musl/bin/:$PATH \
+           CFLAGS=-static \
+           CROSS_COMPILE=i486-linux-musl- \
+           PREFIX=/initramfs \
+           make toybox install V=1 \
+      ) \
+  &&  ./toybox-0.5.2/toybox; if [[ $? != 0 ]]; then echo "no toybox: exit code: $?"; exit 1; fi \
+  &&  rm /usr/bin/gcc \
+  &&  rm -rf toybox-0.5.2
 
-RUN curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x && cd bash-4.3.30 && ./configure --enable-static-link --build=i386-linux --host=x86_64-linux --prefix=/ --without-bash-malloc PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH LDFLAGS_FOR_BUILD=-static CC_FOR_BUILD=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc CC=/i486-linux-musl/bin/i486-linux-musl-gcc
-RUN cd bash-4.3.30 && make RANLIB=/i486-linux-musl/i486-linux-musl/bin/ranlib
-RUN cd bash-4.3.30 && make install DESTDIR=/initramfs && /i486-linux-musl/i486-linux-musl/bin/strip /initramfs/bin/bash
+RUN   curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x \
+  &&  cd bash-4.3.30 \
+  &&  ./configure \
+         --enable-static-link \
+         --build=i386-linux \
+         --host=x86_64-linux \
+         --prefix=/ \
+         --without-bash-malloc \
+         PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH \
+         LDFLAGS_FOR_BUILD=-static \
+         CC_FOR_BUILD=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+         CC=/i486-linux-musl/bin/i486-linux-musl-gcc \
+  &&  make RANLIB=/i486-linux-musl/i486-linux-musl/bin/ranlib \
+  &&  make install DESTDIR=/initramfs \
+  &&  /i486-linux-musl/i486-linux-musl/bin/strip /initramfs/bin/bash \
+  &&  cd .. \
+  &&  rm -rf bash-4.3.30
 
-RUN curl http://www.busybox.net/downloads/busybox-1.23.1.tar.bz2 | bunzip2 | tar x
-RUN echo -e '#!/bin/sh\n/i486-linux-musl/bin/i486-linux-musl-gcc -static $@' > /usr/bin/gcc && chmod +x /usr/bin/gcc
+RUN  curl http://www.busybox.net/downloads/busybox-1.23.1.tar.bz2 | bunzip2 | tar x \
+  && echo -e '#!/bin/sh\n/i486-linux-musl/bin/i486-linux-musl-gcc -static $@' > /usr/bin/gcc \
+  && chmod +x /usr/bin/gcc
 COPY busybox-1.23.1-config /busybox-1.23.1/.config
-RUN (cd busybox-1.23.1 && sed -i -re '256s/-1/1/' include/libbb.h)
-RUN (cd busybox-1.23.1 && PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH make TGTARCH=i486 LDFLAGS="--static" EXTRA_CFLAGS=-m32 EXTRA_LDFLAGS=-m32 HOSTCFLAGS="-D_GNU_SOURCE")
-RUN (cd busybox-1.23.1 && ln busybox ../initramfs/busybox-i486) && rm -rf busybox-1.23.1 /usr/bin/gcc
+RUN  ( \
+          cd busybox-1.23.1 && sed -i -re '256s/-1/1/' include/libbb.h \
+       && PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH \
+          make \
+          TGTARCH=i486 \
+          LDFLAGS="--static" \
+          EXTRA_CFLAGS=-m32 \
+          EXTRA_LDFLAGS=-m32 \
+          HOSTCFLAGS="-D_GNU_SOURCE" \
+       && ln busybox ../initramfs/busybox-i486 \
+     ) \
+ &&  rm -rf busybox-1.23.1 /usr/bin/gcc
 
 COPY initramfs initramfs/
 
-RUN (cd initramfs && find . | cpio -o -H newc | gzip > ../CD_root/initramfs_data.cpio.gz) && ln /usr/share/syslinux/ldlinux.c32 /usr/share/syslinux/isolinux.bin CD_root/isolinux/ && /opt/schily/bin/mkisofs  -allow-leading-dots -allow-multidot -l -relaxed-filenames -no-iso-translate -o 9pboot.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table CD_root
+RUN  ( \
+          cd initramfs \
+       && find . | cpio -o -H newc | gzip > ../CD_root/initramfs_data.cpio.gz\
+     ) \
+ &&  ln /usr/share/syslinux/ldlinux.c32 /usr/share/syslinux/isolinux.bin CD_root/isolinux/ \
+ &&  /opt/schily/bin/mkisofs \
+       -allow-leading-dots \
+       -allow-multidot \
+       -l \
+       -relaxed-filenames \
+       -no-iso-translate \
+       -o 9pboot.iso \
+       -b isolinux/isolinux.bin \
+       -c isolinux/boot.cat \
+       -no-emul-boot \
+       -boot-load-size 4 \
+       -boot-info-table CD_root
