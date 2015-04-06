@@ -1,6 +1,7 @@
 #!/bin/sh -ex
 rm -rf ../fsroot
 cp -fr filledinitramfs/initramfs/. ../fsroot/
+mkdir ../fsroot/dev
 cat > ../fsroot/etc/fstab <<END
 proc            /proc      proc     defaults     0      0
 devtmpfs        /dev       devtmpfs defaults     0      0

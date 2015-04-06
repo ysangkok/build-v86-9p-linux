@@ -73,6 +73,7 @@ RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | ta
   &&  chmod +x /usr/bin/cc \
   &&  make defconfig \
   &&  rm /usr/bin/cc
+# TODO: why is the previous here? we download again later. remove it...
 
 RUN curl http://invisible-island.net/datafiles/release/byacc.tar.gz | gunzip | tar x
 RUN   (     cd byacc* \
@@ -193,6 +194,7 @@ RUN  curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x \
          && make install\
       ) \
   &&  rm -rf bash-4.3.30
+# TODO: remove share (only docs) here
 
 RUN   curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.01a27.tar.bz2/download" | bunzip2 | tar x \
   &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
@@ -205,17 +207,17 @@ RUN   curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.0
 
 COPY config-3.17.8 .config
 COPY isolinux.cfg CD_root/isolinux/
-RUN curl http://mirror.techfak.uni-bielefeld.de/linux/kernel/v4.x/testing/linux-4.0-rc3.tar.xz | unxz | tar x \
+RUN curl http://mirror.techfak.uni-bielefeld.de/linux/kernel/v4.x/testing/linux-4.0-rc6.tar.xz | unxz | tar x \
   &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
   &&  chmod +x /usr/bin/gcc \
   &&  ( \
-            cd linux-4.0-rc3 \
+            cd linux-4.0-rc6 \
         &&  mv ../.config . \
         &&  make oldconfig ARCH=i386 \
         &&  make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
         &&  ln arch/x86/boot/bzImage ../CD_root/bzImage \
       ) \
-  &&  rm -rf linux-4.0-rc3 \
+  &&  rm -rf linux-4.0-rc6 \
   &&  rm /usr/bin/gcc
 #without bash, making would fail with this error:
 #  MKCAP   arch/x86/kernel/cpu/capflags.c
@@ -248,23 +250,25 @@ RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | ta
   &&  ./toybox-0.5.2/toybox; if [[ $? != 0 ]]; then echo "no toybox: exit code: $?"; exit 1; fi \
   &&  rm /usr/bin/gcc \
   &&  rm -rf toybox-0.5.2
+# TODO: also remove i486-linux-musl-cc symlink
 
 RUN   curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x \
-  &&  cd bash-4.3.30 \
-  &&  ./configure \
-         --enable-static-link \
-         --build=i386-linux \
-         --host=x86_64-linux \
-         --prefix=/ \
-         --without-bash-malloc \
-         PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH \
-         LDFLAGS_FOR_BUILD=-static \
-         CC_FOR_BUILD=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
-         CC=/i486-linux-musl/bin/i486-linux-musl-gcc \
-  &&  make RANLIB=/i486-linux-musl/i486-linux-musl/bin/ranlib \
-  &&  make install DESTDIR=/initramfs \
-  &&  /i486-linux-musl/i486-linux-musl/bin/strip /initramfs/bin/bash \
-  &&  cd .. \
+  &&  ( \
+             cd bash-4.3.30 \
+         &&  ./configure \
+                --enable-static-link \
+                --build=i386-linux \
+                --host=x86_64-linux \
+                --prefix=/ \
+                --without-bash-malloc \
+                PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH \
+                LDFLAGS_FOR_BUILD=-static \
+                CC_FOR_BUILD=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+                CC=/i486-linux-musl/bin/i486-linux-musl-gcc \
+         &&  make RANLIB=/i486-linux-musl/i486-linux-musl/bin/ranlib \
+         &&  make install DESTDIR=/initramfs \
+         &&  /i486-linux-musl/i486-linux-musl/bin/strip /initramfs/bin/bash \
+      ) \
   &&  rm -rf bash-4.3.30
 
 RUN  curl http://www.busybox.net/downloads/busybox-1.23.1.tar.bz2 | bunzip2 | tar x \
@@ -284,7 +288,12 @@ RUN  ( \
      ) \
  &&  rm -rf busybox-1.23.1 /usr/bin/gcc
 
+RUN rm -rv initramfs/share
+
 COPY initramfs initramfs/
+
+RUN   curl -L -o initramfs/bin/strace http://landley.net/aboriginal/downloads/binaries/extras/strace-i486 \
+  &&  chmod +x initramfs/bin/strace
 
 RUN  ( \
           cd initramfs \
