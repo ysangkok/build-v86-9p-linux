@@ -292,8 +292,8 @@ RUN rm -rv initramfs/share
 
 COPY initramfs initramfs/
 
-RUN   curl -L -o initramfs/bin/strace http://landley.net/aboriginal/downloads/binaries/extras/strace-i486 \
-  &&  chmod +x initramfs/bin/strace
+#RUN   curl -L -o initramfs/bin/strace http://landley.net/aboriginal/downloads/binaries/extras/strace-i486 \
+#  &&  chmod +x initramfs/bin/strace
 
 RUN  ( \
           cd initramfs \

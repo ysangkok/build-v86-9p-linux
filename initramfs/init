@@ -2,9 +2,11 @@
 #/busybox-i486 mkdir -p bin usr/sbin usr/bin sbin
 #/busybox-i486 --install -s
 /busybox-i486 mount -a
-mount --move sys host9p/fsroot/sys
-mount --move proc host9p/fsroot/proc
-mkdir host9p/fsroot/dev
-mount --move dev host9p/fsroot/dev
-mount --bind host9p/fsroot host9p/fsroot
-exec /busybox-i486 switch_root host9p/fsroot /init
+mount --move sys host9p/sys
+mount --move proc host9p/proc
+#mkdir writable upper work
+#/busybox-i486 mount -t overlay -olowerdir=/host9p,upperdir=/upper,workdir=/work overlayfs writable
+#mkdir writable/fsroot/dev
+#mount --move dev writable/fsroot/dev
+mount --move dev host9p/dev
+exec /busybox-i486 switch_root host9p /init
