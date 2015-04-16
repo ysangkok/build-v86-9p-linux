@@ -290,14 +290,74 @@ RUN  ( \
 
 RUN rm -rv initramfs/share
 
-COPY initramfs initramfs/
+# TODO the following shouldn't be in the iso...
 
-#RUN   curl -L -o initramfs/bin/strace http://landley.net/aboriginal/downloads/binaries/extras/strace-i486 \
-#  &&  chmod +x initramfs/bin/strace
+RUN  curl http://curl.haxx.se/download/curl-7.41.0.tar.bz2 | bunzip2 | cpio -mi \
+  && ( \
+          cd curl-7.41.0 \
+       && AR=ar PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH LDFLAGS=--static CC="/i486-linux-musl/bin/i486-linux-musl-gcc" ./configure --host=i486-linux-musl --disable-shared --prefix=/usr \
+       && AR=ar PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH LDFLAGS=--static make RANLIB=/i486-linux-musl/i486-linux-musl/bin/ranlib \
+       && PATH=/i486-linux-musl/i486-linux-musl/bin:$PATH make install DESTDIR=/initramfs \
+     ) \
+  && rm -rf curl-7.41.0
+
+RUN  curl -L http://downloads.sourceforge.net/project/dtach/dtach/0.8/dtach-0.8.tar.gz | gunzip | cpio -mi \
+  && ( \
+          cd dtach-0.8 \
+       && LDFLAGS=-static CC="/i486-linux-musl/bin/i486-linux-musl-gcc" ./configure \
+       && LDFLAGS=-static make \
+       && cp -v dtach /initramfs/bin/ \
+     ) \
+  && rm -rf dtach-0.8
+
+RUN  curl -L https://sourceforge.net/projects/levent/files/libevent/libevent-2.0/libevent-2.0.22-stable.tar.gz/download | gunzip | cpio -mi \
+  && ( \
+          cd libevent-2.0.22-stable \
+       && LDFLAGS=-static CC="/i486-linux-musl/bin/i486-linux-musl-gcc" ./configure --disable-shared \
+       && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make \
+       && make install DESTDIR=/initramfs \
+     ) \
+  && rm -rf libevent-2.0.22-stable
+
+RUN  curl -L http://ftp.gnu.org/pub/gnu/ncurses/ncurses-5.9.tar.gz | gunzip | tar x \
+  && ( \
+          cd ncurses-5.9 \
+       && LDFLAGS=-static CC="/i486-linux-musl/bin/i486-linux-musl-gcc" ./configure --without-ada --without-cxx --without-progs --without-manpages --disable-db-install --without-tests --host=i486-linux-gnu --with-build-ldflags=-static --with-build-cc=/x86_64-linux-musl/bin/x86_64-gcc \
+       && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make \
+     )
+
+#RUN  ( \
+#          cd ncurses-5.9 \
+#       && LDFLAGS=-static make install DESTDIR=/initramfs TIC_PATH=: \
+#     )
+# TODO fix install so that we can delete
+
+RUN  curl http://ftp.gnu.org/gnu/screen/screen-4.2.1.tar.gz | gunzip | cpio -mi \
+  && ( \
+          cd screen-4.2.1 \
+       && LDFLAGS="-L/ncurses-5.9/lib -static" CPPFLAGS="-I/ncurses-5.9/include" CC="/i486-linux-musl/bin/i486-linux-musl-gcc" CROSS_COMPILE=i486-linux-musl ./configure --host=i486-linux-musl --prefix=/usr \
+       && make \
+       && make install DESTDIR=/initramfs \
+     ) \
+  && rm -rf screen-4.2.1
+
+RUN  curl -L https://sourceforge.net/projects/tmux/files/tmux/tmux-1.9/tmux-1.9a.tar.gz/download | gunzip | cpio -mi \
+  && ( \
+          cd tmux-1.9a \
+       && CC="/i486-linux-musl/bin/i486-linux-musl-gcc" LDFLAGS="-L/ncurses-5.9/lib" CPPFLAGS="-I/ncurses-5.9/include" LIBEVENT_LIBS="-L/initramfs/usr/local/lib -levent" LIBEVENT_CFLAGS="-I/initramfs/usr/local/include" ./configure --enable-static --host=i486-linux-musl --prefix=/usr \
+       && make \
+       && make install DESTDIR=/initramfs \
+     ) \
+  && rm -rf tmux-1.9a /usr/bin/gcc
+
+RUN   curl -L -o initramfs/bin/strace http://landley.net/aboriginal/downloads/binaries/extras/strace-i486 \
+  &&  chmod +x initramfs/bin/strace
+
+COPY initramfs initramfs/
 
 RUN  ( \
           cd initramfs \
-       && find . | cpio -o -H newc | gzip > ../CD_root/initramfs_data.cpio.gz\
+       && find . | cpio -o -H newc | gzip > ../CD_root/initramfs_data.cpio.gz \
      ) \
  &&  ln /usr/share/syslinux/ldlinux.c32 /usr/share/syslinux/isolinux.bin CD_root/isolinux/ \
  &&  /opt/schily/bin/mkisofs \
