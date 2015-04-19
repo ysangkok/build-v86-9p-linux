@@ -11,18 +11,38 @@ COPY sltar.c sltar.c
 RUN   /x86_64-linux-musl/bin/x86_64-musl-linux-gcc sltar.c -DVERSION="\"9000\"" -static -o sltar \
   &&  curl "http://ftp.gnu.org/gnu/make/make-4.1.tar.bz2" | bunzip2 | ./sltar x \
   &&  ( \
-          cd make-4.1 \
-      &&  ./configure PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC="/x86_64-linux-musl/bin/x86_64-linux-musl-gcc" LDFLAGS="-static" \
-      &&  ./build.sh \
-      &&  cp make /usr/bin/ \
+            cd make-4.1 \
+        &&  ./configure PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH CC="/x86_64-linux-musl/bin/x86_64-linux-musl-gcc" LDFLAGS="-static" \
+        &&  ./build.sh \
+        &&  cp make /usr/bin/ \
       ) \
   && rm -rf make-4.1
 
 ENV PATH /usr/local/bin:$PATH
 
-RUN curl http://ftp.gnu.org/gnu/cpio/cpio-2.11.shar.gz | gunzip | sh && (cd cpio-2.11 && ./configure LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc && PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make && make install) && rm -rf cpio-2.11
+#RUN  curl http://ftp.gnu.org/gnu/cpio/cpio-2.11.shar.gz | gunzip | sh
+#RUN  cd cpio-2.11; ./configure LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc
+#RUN  cd cpio-2.11; PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make
+#RUN  cd cpio-2.11; make install
+RUN   curl http://ftp.gnu.org/gnu/cpio/cpio-2.11.shar.gz | gunzip | sh \
+  &&  ( \
+            cd cpio-2.11 \
+        &&  ./configure LDFLAGS=-static CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+        &&  PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH make \
+        &&  make install \
+      ) \
+  &&  rm -rf cpio-2.11 || true
+# || true is a workaround for something that looks like a docker bug (in 1.6) that makes it impossible to delete deep paths
 
-RUN curl http://www.nasm.us/pub/nasm/releasebuilds/2.11.08/nasm-2.11.08.tar.xz | unxz | tar x && (cd nasm-2.11.08 && ./configure LDFLAGS="-static" CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc && make && make install) && rm -rf nasm-2.11.08 && nasm; if [[ $? != 1 ]]; then echo "no nasm"; exit 1; fi
+RUN   curl http://www.nasm.us/pub/nasm/releasebuilds/2.11.08/nasm-2.11.08.tar.xz | unxz | tar x \
+  &&  ( \
+            cd nasm-2.11.08 \
+        &&  ./configure LDFLAGS="-static" CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+        &&  make \
+        &&  make install \
+      ) \
+  &&  rm -rf nasm-2.11.08 \
+  &&  nasm; if [[ $? != 1 ]]; then echo "no nasm"; exit 1; fi
 
 RUN   curl https://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.tar.xz | unxz | tar x \
   &&  curl -o /usr/bin/perl http://staticperl.schmorp.de/bigperl.bin \
@@ -66,14 +86,13 @@ RUN   make -C syslinux-6.03 \
   &&  rm /usr/bin/perl
 
 # replace shebang to avoid using bash
-RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x \
-  &&  cd toybox-0.5.2 \
-  &&  sed -i -re '1 s,^.*$,#!/bin/sh,g' scripts/genconfig.sh \
-  &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc \
-  &&  chmod +x /usr/bin/cc \
-  &&  make defconfig \
-  &&  rm /usr/bin/cc
-# TODO: why is the previous here? we download again later. remove it...
+#RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x \
+#  &&  cd toybox-0.5.2 \
+#  &&  sed -i -re '1 s,^.*$,#!/bin/sh,g' scripts/genconfig.sh \
+#  &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/cc \
+#  &&  chmod +x /usr/bin/cc \
+#  &&  make defconfig \
+#  &&  rm /usr/bin/cc
 
 RUN curl http://invisible-island.net/datafiles/release/byacc.tar.gz | gunzip | tar x
 RUN   (     cd byacc* \
@@ -127,18 +146,27 @@ RUN   ( \
       ) \
   &&  rm -rf flex-2.5.39
 
-RUN   wget http://fossies.org/linux/privat/ed-1.10.zip \
-  &&  unzip ed-1.10.zip \
+RUN   curl -L http://download.savannah.gnu.org/releases/lzip/lunzip/lunzip-1.7-pre1.tar.gz | gunzip | tar x \
   &&  ( \
-            cd ed-1.10 \
+            cd lunzip-1.7-pre1 \
+        &&  ./configure \
+              CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
+              LDFLAGS=-static \
+        &&  make \
+        &&  make install \
+      ) \
+  &&  rm -rf lunzip-1.7-pre1
+
+RUN   curl  http://ftp.halifax.rwth-aachen.de/gnu/ed/ed-1.11.tar.lz | lunzip | tar x \
+  &&  ( \
+            cd ed-1.11 \
         &&  ./configure \
               LDFLAGS=-static \
               CC=/x86_64-linux-musl/bin/x86_64-linux-musl-gcc \
         &&  make \
         &&  make install \
       ) \
-  &&  rm -rf ed-1.10 \
-  &&  rm ed-1.10.zip
+  &&  rm -rf ed-1.11
 
 RUN   curl http://alpha.gnu.org/gnu/bc/bc-1.06.95.tar.bz2 | bunzip2 | cpio -mi \
   &&  ( \
@@ -156,8 +184,18 @@ RUN   curl http://alpha.gnu.org/gnu/bc/bc-1.06.95.tar.bz2 | bunzip2 | cpio -mi \
 # these were tested only with glibc (official gcc docker):
 #RUN python -c "import urllib; urllib.urlretrieve('http://www.busybox.net/downloads/binaries/1.21.1/busybox-i486','initramfs/busybox-i486')" && chmod +x initramfs/busybox-i486
 #RUN python -c "import urllib; urllib.urlretrieve('http://download.savannah.gnu.org/releases/tinycc/tcc-0.9.26.tar.bz2','/dev/stdout')" | tar jx && (cd tcc-0.9.26 && ./configure --enable-cross && make i386-tcc && make install) && rm -rf tcc-0.9.26
+
 # this is for building toybox with tcc:
-#RUN python -c "import urllib; urllib.urlretrieve('http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz','/dev/stdout')" | tar zx && (cd toybox-0.5.2 && sed -i -re 's/-Wl,--as-needed//' scripts/make.sh && ln -s `which gcc` /usr/bin/cc && make defconfig && rm /usr/bin/cc && LDOPTIMIZE=" " CC="tcc" CFLAGS="-static -m32" ./scripts/make.sh) && rm -rf toybox-0.5.2
+#RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | tar x \
+#  &&  ( \
+#            cd toybox-0.5.2 \
+#        &&  sed -i -re 's/-Wl,--as-needed//' scripts/make.sh \
+#        &&  ln -s `which gcc` /usr/bin/cc \
+#        &&  make defconfig \
+#        &&  rm /usr/bin/cc \
+#        &&  LDOPTIMIZE=" " CC="tcc" CFLAGS="-static -m32" ./scripts/make.sh \
+#      ) \
+#  &&  rm -rf toybox-0.5.2
 
 RUN curl -L http://sourceforge.net/projects/s-make/files/smake-1.2.4.tar.bz2/download | bunzip2 | tar x
 # make bootstrap smake:
@@ -193,8 +231,8 @@ RUN  curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x \
               PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
          && make install\
       ) \
-  &&  rm -rf bash-4.3.30
-# TODO: remove share (only docs) here
+  &&  rm -rf bash-4.3.30 \
+  &&  rm -r share
 
 RUN   curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.01a27.tar.bz2/download" | bunzip2 | tar x \
   &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
@@ -207,17 +245,17 @@ RUN   curl -L "http://sourceforge.net/projects/cdrtools/files/alpha/cdrtools-3.0
 
 COPY config-3.17.8 .config
 COPY isolinux.cfg CD_root/isolinux/
-RUN curl http://mirror.techfak.uni-bielefeld.de/linux/kernel/v4.x/testing/linux-4.0-rc6.tar.xz | unxz | tar x \
+RUN curl http://mirror.techfak.uni-bielefeld.de/linux/kernel/v4.x/linux-4.0.tar.xz | unxz | tar x \
   &&  echo -e '#!/bin/sh\n/x86_64-linux-musl/bin/x86_64-linux-musl-gcc -static $@' > /usr/bin/gcc \
   &&  chmod +x /usr/bin/gcc \
   &&  ( \
-            cd linux-4.0-rc6 \
+            cd linux-4.0 \
         &&  mv ../.config . \
         &&  make oldconfig ARCH=i386 \
         &&  make ARCH=i386 PATH=/x86_64-linux-musl/x86_64-linux-musl/bin:$PATH \
         &&  ln arch/x86/boot/bzImage ../CD_root/bzImage \
       ) \
-  &&  rm -rf linux-4.0-rc6 \
+  &&  rm -rf linux-4.0 \
   &&  rm /usr/bin/gcc
 #without bash, making would fail with this error:
 #  MKCAP   arch/x86/kernel/cpu/capflags.c
@@ -249,8 +287,8 @@ RUN   curl http://landley.net/toybox/downloads/toybox-0.5.2.tar.gz | gunzip | ta
       ) \
   &&  ./toybox-0.5.2/toybox; if [[ $? != 0 ]]; then echo "no toybox: exit code: $?"; exit 1; fi \
   &&  rm /usr/bin/gcc \
-  &&  rm -rf toybox-0.5.2
-# TODO: also remove i486-linux-musl-cc symlink
+  &&  rm -rf toybox-0.5.2 \
+  &&  rm /i486-linux-musl/bin/i486-linux-musl-cc
 
 RUN   curl http://ftp.gnu.org/gnu/bash/bash-4.3.30.tar.gz | gunzip | tar x \
   &&  ( \
@@ -335,7 +373,11 @@ RUN  curl -L http://ftp.gnu.org/pub/gnu/ncurses/ncurses-5.9.tar.gz | gunzip | ta
 RUN  curl http://ftp.gnu.org/gnu/screen/screen-4.2.1.tar.gz | gunzip | cpio -mi \
   && ( \
           cd screen-4.2.1 \
-       && LDFLAGS="-L/ncurses-5.9/lib -static" CPPFLAGS="-I/ncurses-5.9/include" CC="/i486-linux-musl/bin/i486-linux-musl-gcc" CROSS_COMPILE=i486-linux-musl ./configure --host=i486-linux-musl --prefix=/usr \
+       && LDFLAGS="-L/ncurses-5.9/lib -static" \
+            CPPFLAGS="-I/ncurses-5.9/include" \
+            CC="/i486-linux-musl/bin/i486-linux-musl-gcc" \
+            CROSS_COMPILE=i486-linux-musl \
+            ./configure --host=i486-linux-musl --prefix=/usr \
        && make \
        && make install DESTDIR=/initramfs \
      ) \
@@ -344,7 +386,12 @@ RUN  curl http://ftp.gnu.org/gnu/screen/screen-4.2.1.tar.gz | gunzip | cpio -mi 
 RUN  curl -L https://sourceforge.net/projects/tmux/files/tmux/tmux-1.9/tmux-1.9a.tar.gz/download | gunzip | cpio -mi \
   && ( \
           cd tmux-1.9a \
-       && CC="/i486-linux-musl/bin/i486-linux-musl-gcc" LDFLAGS="-L/ncurses-5.9/lib" CPPFLAGS="-I/ncurses-5.9/include" LIBEVENT_LIBS="-L/initramfs/usr/local/lib -levent" LIBEVENT_CFLAGS="-I/initramfs/usr/local/include" ./configure --enable-static --host=i486-linux-musl --prefix=/usr \
+       && CC="/i486-linux-musl/bin/i486-linux-musl-gcc" \
+            LDFLAGS="-L/ncurses-5.9/lib" \
+            CPPFLAGS="-I/ncurses-5.9/include" \
+            LIBEVENT_LIBS="-L/initramfs/usr/local/lib -levent" \
+            LIBEVENT_CFLAGS="-I/initramfs/usr/local/include" \
+            ./configure --enable-static --host=i486-linux-musl --prefix=/usr \
        && make \
        && make install DESTDIR=/initramfs \
      ) \
