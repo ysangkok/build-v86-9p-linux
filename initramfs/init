@@ -1,7 +1,6 @@
 #!/bin/bash -ex
 #/busybox-i486 mkdir -p bin usr/sbin usr/bin sbin
-#/busybox-i486 --install -s
-/busybox-i486 mount -a
+mount -a
 mount --move sys host9p/sys
 mount --move proc host9p/proc
 #mkdir writable upper work
@@ -9,4 +8,4 @@ mount --move proc host9p/proc
 #mkdir writable/fsroot/dev
 #mount --move dev writable/fsroot/dev
 mount --move dev host9p/dev
-exec /busybox-i486 switch_root host9p /init
+exec /busybox-i486 host9p linuxrc # switch_root

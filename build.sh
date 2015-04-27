@@ -4,8 +4,9 @@
 #mv bzImage 26.bzImage
 docker build -t 9pkernel-done .
 CONTAINER=$(docker create 9pkernel-done)
-docker cp $CONTAINER:/9pboot.iso .
+docker cp $CONTAINER:/9pboot.iso /var/www/v86/images
+docker build -t userland-done -f Dockerfile2 .
+CONTAINER=$(docker create userland-done)
 rm -rf filledinitramfs
 docker cp $CONTAINER:/initramfs/. filledinitramfs
-cp -v 9pboot.iso /var/www/v86/images
 exec ./build2.sh
